@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizador Maquinaria - Expert Edition (Light/Dark)</title>
+  <title>Cotizador Maquinaria - Expert Edition</title>
+  <meta name="description" content="Cotizador profesional de renta de maquinaria pesada. Genera cotizaciones formales con cálculo automático de ITBIS, operador, logística y seguro.">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,32 +29,33 @@
         Revisa los tokens de acceso.</p>
     </div>
 
-    <!-- HEADER WEB -->
+    <!-- HEADER WEB (Oculto visualmente) -->
     <div
-      class="no-print bg-app-black p-4 border-b-2 border-app-neon flex items-center justify-between z-20 transition-colors duration-300">
+      class="hidden no-print bg-app-black p-4 border-b-2 border-app-neon flex items-center justify-between z-20 transition-colors duration-300">
       <div class="flex items-center gap-2 text-app-white font-black uppercase tracking-widest text-lg">
         <i data-lucide="hard-hat" class="w-6 h-6 text-app-neon"></i>
         <span>logo<span class="text-app-neon">Rent</span></span>
       </div>
       <div class="flex items-center gap-3 md:gap-4">
-        <button id="btn-theme" class="text-app-textMuted hover:text-app-neon transition-colors p-1"
-          title="Cambiar tema">
-          <i data-lucide="moon" id="icon-theme" class="w-5 h-5"></i>
-        </button>
         <span
           class="text-[10px] md:text-xs text-app-textMuted font-bold uppercase tracking-wider border border-app-border px-2 py-1 rounded-sm">B2B
           Expert DR</span>
       </div>
     </div>
 
-    <!-- HEADER IMPRESIÓN -->
-    <div class="print-header-visible p-6 border-b-2 border-black flex items-center justify-between mb-6">
-      <div class="flex items-center gap-2 font-black uppercase tracking-widest text-2xl">
-        <span>Tu marca <span class="text-gray-500">Corporativo</span></span>
+    <!-- HEADER MARCA (Web e Impresión) -->
+    <div
+      class="w-full p-4 md:p-6 border-b border-app-border print:border-black print:border-b-2 flex items-center justify-between mb-2 md:mb-6 transition-colors duration-300">
+      <div class="flex items-center gap-3 font-black uppercase tracking-widest text-sm md:text-base text-app-textMain">
+        <span>Tu marca <span class="text-app-textMuted print:text-gray-500 font-medium">Corporativo</span></span>
+        <button id="btn-theme" class="no-print text-app-textMuted hover:text-app-neon transition-colors p-1"
+          title="Cambiar tema">
+          <i data-lucide="moon" id="icon-theme" class="w-4 h-4 md:w-5 md:h-5"></i>
+        </button>
       </div>
-      <div class="text-right">
-        <p class="font-bold text-xs uppercase">Cotización Formal de Servicios</p>
-        <p class="text-xs" id="print-date"></p>
+      <div class="text-right text-app-textMain">
+        <p class="font-bold text-[10px] md:text-xs uppercase print:text-black">Cotización Formal de Servicios</p>
+        <p class="text-[10px] md:text-xs text-app-textMuted print:text-black" id="print-date"></p>
       </div>
     </div>
 
@@ -443,7 +445,7 @@
         </button>
       </div>
 
-      <!-- Barra de Búsqueda Nueva -->
+      <!-- Barra de Búsqueda -->
       <div class="px-4 pt-4 shrink-0">
         <div class="relative">
           <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-app-textMuted"></i>
