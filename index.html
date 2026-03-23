@@ -57,6 +57,7 @@
       <div class="text-right text-app-textMain">
         <p class="font-bold text-[10px] md:text-xs uppercase print:text-black">Cotización Formal de Servicios</p>
         <p class="text-[10px] md:text-xs text-app-textMuted print:text-black" id="print-date"></p>
+        <p class="text-[10px] font-black text-app-neon print:text-black hidden" id="display-quote-id"></p>
       </div>
     </div>
 
@@ -368,6 +369,9 @@
           <div class="flex items-center justify-between border-t border-app-border print:border-black pt-3">
             <span class="text-app-white font-black text-xs uppercase tracking-widest">Presupuesto Final:</span>
             <span class="text-2xl font-black text-app-neon tracking-tight" id="resumen-total">$0.00</span>
+          </div>
+          <div class="text-right mt-2 no-print">
+            <span id="label-quote-id" class="text-[10px] font-bold text-app-textMuted uppercase hidden">ID: <span id="val-quote-id" class="text-app-neon"></span></span>
           </div>
         </div>
 

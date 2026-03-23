@@ -1,3 +1,33 @@
+import { z } from 'zod';
+
+const LeadSchema = z.object({
+    "Razón Social / Constructora": z.string().min(1),
+    "Responsable de Obra": z.string().min(1),
+    "Teléfono Móvil": z.string().min(1),
+    "Ubicación / Proyecto": z.string().min(1),
+    "Equipos Cotizados": z.string(),
+    "Fecha de Inicio": z.string(),
+    "Fecha de Fin": z.string(),
+    "Régimen de Turnos": z.string(),
+    "Suministro Diésel": z.string(),
+    "Zona Logística": z.string(),
+    "Modalidad Operador": z.string(),
+    "Seguro Incluido": z.boolean(),
+    "Subtotal Renta Máquinas": z.number(),
+    "Bonificación Volumen": z.number(),
+    "Costo Operador": z.number(),
+    "Suministro Combustible": z.number(),
+    "Flete Logístico": z.number(),
+    "Seguro Póliza": z.number(),
+    "Viáticos": z.number(),
+    "Subtotal Operativo": z.number(),
+    "ITBIS": z.number(),
+    "Total Presupuesto": z.number(),
+    "Estado de Cotización": z.string(),
+    "quote_id": z.string().min(1),
+    "monto_total": z.number()
+});
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -12,13 +42,27 @@ export default async function handler(req, res) {
     }
 
     try {
-        // En Vercel, req.body ya viene parseado como objeto JSON si el Content-Type es application/json
         const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        
+        // Add mandatory company_id
+        payload.company_id = "MAQ-RENT-001";
+
+        // Validate payload
+        const validation = LeadSchema.safeParse(payload);
+        if (!validation.success) {
+            return res.status(400).json({ 
+                error: "Invalid lead data", 
+                details: validation.error.format() 
+            });
+        }
 
         const AirtableBody = {
             records: [
                 {
-                    fields: payload
+                    fields: {
+                        ...validation.data,
+                        company_id: payload.company_id // Ensure it's passed at the top level of fields
+                    }
                 }
             ]
         };

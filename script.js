@@ -319,111 +319,116 @@ function renderCarrito() {
   calcularTotales();
 }
 
-function calcularTotales() {
+async function calcularTotales() {
+  if (carrito.length === 0) {
+    document.getElementById('precio-total').innerText = "$0.00";
+    document.getElementById('resumen-total').innerText = "$0.00";
+    document.getElementById('label-quote-id').classList.add('hidden');
+    document.getElementById('display-quote-id').classList.add('hidden');
+    return;
+  }
+
   const selectZona = document.getElementById('select-zona');
   const selectOperador = document.getElementById('select-operador');
   const selectTurnos = document.getElementById('select-turnos');
   const selectCombustible = document.getElementById('select-combustible');
   const tieneSeguro = document.getElementById('toggle-seguro').checked;
+  const laboraDomingos = document.getElementById('toggle-domingos').checked;
 
-  const recargoCombustible = parseFloat(selectCombustible.options[selectCombustible.selectedIndex].dataset.pct);
-  const horasPorDia = parseInt(selectTurnos.value);
-  const zonaVal = selectZona.value;
-  const VIATICO_DIARIO = 45;
-
-  let costoMaquinasPuro = 0;
-  let costoOperadorTotal = 0;
-  let viaticosTotal = 0;
-  let totalHorasProyecto = 0;
-  let maxDiasItem = 0;
-
-  const costoOperadorTurno8h = selectOperador.value === 'si' ? parseInt(selectOperador.options[selectOperador.selectedIndex].dataset.precio) : 0;
-
-  carrito.forEach(item => {
-    const diasItem = getDiasLaborables(item.fInicio, item.fFin);
-    if (diasItem > maxDiasItem) maxDiasItem = diasItem;
-
-    const horasTotalesItem = diasItem * horasPorDia;
-    totalHorasProyecto += (horasTotalesItem * item.qty);
-
-    costoMaquinasPuro += (item.precioHora * item.qty * horasTotalesItem);
-
-    if (item.categoria !== 'Accesorios' && selectOperador.value === 'si') {
-      const turnosOperadorNecesarios = horasPorDia / 8;
-      costoOperadorTotal += (costoOperadorTurno8h * turnosOperadorNecesarios) * item.qty * diasItem;
-      if (zonaVal === 'foranea') viaticosTotal += (VIATICO_DIARIO * diasItem * item.qty);
+  const payload = {
+    items: carrito.map(item => ({
+      id: item.id,
+      nombre: item.nombre,
+      categoria: item.categoria,
+      qty: item.qty,
+      fInicio: item.fInicio,
+      fFin: item.fFin,
+      precioHora: item.precioHora,
+      pesado: item.pesado
+    })),
+    config: {
+      zona: selectZona.value,
+      operador: selectOperador.value,
+      turnos: parseInt(selectTurnos.value),
+      combustible: selectCombustible.value,
+      seguro: tieneSeguro,
+      domingos: laboraDomingos
     }
-  });
+  };
 
-  let descuentoPct = 0;
-  let tipoTarifa = "Estándar";
+  try {
+    const resp = await fetch('/api/calculate-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  if (maxDiasItem >= 30) {
-    descuentoPct = 0.30;
-    tipoTarifa = "Mensual";
-  } else if (maxDiasItem >= 7) {
-    descuentoPct = 0.15;
-    tipoTarifa = "Semanal";
-  }
+    if (!resp.ok) throw new Error("Error en el cálculo del servidor");
 
-  let descuentoValor = costoMaquinasPuro * descuentoPct;
-  let costoMaquinasConDescuento = costoMaquinasPuro - descuentoValor;
+    const data = await resp.json();
+    desglose = data.breakdown;
+    const { quote_id } = data;
+    window.current_quote_id = quote_id;
 
-  desglose.maxDias = maxDiasItem;
-  desglose.maxHoras = totalHorasProyecto;
-  desglose.subtotalMaquinasPuro = costoMaquinasPuro;
-  desglose.descuentoValor = descuentoValor;
-  desglose.costoOperador = costoOperadorTotal;
-  desglose.viaticos = viaticosTotal;
+    // Update UI
+    document.getElementById('precio-total').innerText = `$${desglose.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-maquinas-puro').innerText = `$${desglose.subtotalMaquinasPuro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-operador').innerText = `$${desglose.costoOperador.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-combustible').innerText = `$${desglose.combustible.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-flete').innerText = `$${desglose.flete.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-seguro').innerText = `$${desglose.seguro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const alerta = document.getElementById('alerta-dias');
-  if (carrito.length > 0) {
-    document.getElementById('texto-dias').innerText = `Uso Estimado Total: ${totalHorasProyecto} hrs de horómetro.`;
+    const rowDesc = document.getElementById('row-descuento');
+    if (desglose.descuentoValor > 0) {
+      rowDesc.classList.remove('hidden');
+      const tipoTarifa = desglose.descuentoPct === 0.30 ? "Mensual" : "Semanal";
+      document.getElementById('label-descuento').innerText = `Bonificación Tarifa ${tipoTarifa} (${desglose.descuentoPct * 100}%):`;
+      document.getElementById('resumen-descuento').innerText = `-$${desglose.descuentoValor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      
+      const alertaDesc = document.getElementById('alerta-descuento');
+      document.getElementById('texto-descuento').innerText = `TARIFA ${tipoTarifa.toUpperCase()} ACTIVADA: Se aplicó un ${(desglose.descuentoPct * 100)}% de bonificación.`;
+      alertaDesc.classList.remove('hidden');
+    } else {
+      rowDesc.classList.add('hidden');
+      document.getElementById('alerta-descuento').classList.add('hidden');
+    }
+
+    const rowViaticos = document.getElementById('row-viaticos');
+    if (desglose.viaticos > 0) {
+      rowViaticos.classList.remove('hidden');
+      document.getElementById('resumen-viaticos').innerText = `$${desglose.viaticos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } else {
+      rowViaticos.classList.add('hidden');
+    }
+
+    document.getElementById('resumen-subtotal-operativo').innerText = `$${desglose.subtotalOperativo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-itbis').innerText = `$${desglose.itbis.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('resumen-total').innerText = `$${desglose.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // Show Quote ID
+    const qLabel = document.getElementById('label-quote-id');
+    const qVal = document.getElementById('val-quote-id');
+    const qDisplay = document.getElementById('display-quote-id');
+    if (qLabel && qVal) {
+      qVal.innerText = quote_id;
+      qLabel.classList.remove('hidden');
+    }
+    if (qDisplay) {
+      qDisplay.innerText = `Quote ID: ${quote_id}`;
+      qDisplay.classList.remove('hidden');
+    }
+
+    // Alerts
+    const alerta = document.getElementById('alerta-dias');
+    document.getElementById('texto-dias').innerText = `Uso Estimado Total: ${data.summary.totalHorasProyecto} hrs de horómetro.`;
     alerta.classList.remove('hidden');
-  } else { alerta.classList.add('hidden'); }
 
-  const alertaPM = document.getElementById('alerta-mantenimiento');
-  totalHorasProyecto >= 250 ? alertaPM.classList.remove('hidden') : alertaPM.classList.add('hidden');
+    const alertaPM = document.getElementById('alerta-mantenimiento');
+    data.summary.totalHorasProyecto >= 250 ? alertaPM.classList.remove('hidden') : alertaPM.classList.add('hidden');
 
-  const alertaDesc = document.getElementById('alerta-descuento');
-  if (descuentoPct > 0 && carrito.length > 0) {
-    document.getElementById('texto-descuento').innerText = `TARIFA ${tipoTarifa.toUpperCase()} ACTIVADA: Se aplicó un ${(descuentoPct * 100)}% de bonificación.`;
-    alertaDesc.classList.remove('hidden');
-  } else { alertaDesc.classList.add('hidden'); }
-
-  desglose.combustible = costoMaquinasConDescuento * recargoCombustible;
-  let heavyCount = carrito.filter(i => i.pesado).reduce((sum, item) => sum + item.qty, 0);
-  let fleteBase = parseInt(selectZona.options[selectZona.selectedIndex].dataset.precio);
-  desglose.flete = carrito.length > 0 ? (heavyCount > 0 ? fleteBase * heavyCount : fleteBase) : 0;
-  desglose.seguro = tieneSeguro ? (costoMaquinasConDescuento * 0.08) : 0;
-
-  desglose.subtotalOperativo = costoMaquinasConDescuento + costoOperadorTotal + desglose.combustible + desglose.flete + desglose.seguro + desglose.viaticos;
-  desglose.itbis = desglose.subtotalOperativo * 0.18;
-  desglose.total = desglose.subtotalOperativo + desglose.itbis;
-
-  document.getElementById('precio-total').innerText = `$${desglose.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-maquinas-puro').innerText = `$${desglose.subtotalMaquinasPuro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-operador').innerText = `$${desglose.costoOperador.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-combustible').innerText = `$${desglose.combustible.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-flete').innerText = `$${desglose.flete.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-seguro').innerText = `$${desglose.seguro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const rowDesc = document.getElementById('row-descuento');
-  if (descuentoValor > 0) {
-    rowDesc.classList.remove('hidden');
-    document.getElementById('label-descuento').innerText = `Bonificación Tarifa ${tipoTarifa} (${descuentoPct * 100}%):`;
-    document.getElementById('resumen-descuento').innerText = `-$${descuentoValor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else { rowDesc.classList.add('hidden'); }
-
-  const rowViaticos = document.getElementById('row-viaticos');
-  if (viaticosTotal > 0) {
-    rowViaticos.classList.remove('hidden');
-    document.getElementById('resumen-viaticos').innerText = `$${desglose.viaticos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else { rowViaticos.classList.add('hidden'); }
-
-  document.getElementById('resumen-subtotal-operativo').innerText = `$${desglose.subtotalOperativo.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-itbis').innerText = `$${desglose.itbis.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  document.getElementById('resumen-total').innerText = `$${desglose.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } catch (err) {
+    console.error("Fetch Calculation Error:", err);
+  }
 }
 
 // =========================================================================
@@ -465,7 +470,10 @@ async function aprobarCotizacion() {
 
   let listaEquiposTexto = '';
   carrito.forEach(item => {
-    let dias = getDiasLaborables(item.fInicio, item.fFin);
+    // Note: getDiasLaborables should be available globally or recalculated
+    // For simplicity, we use the text list generated before
+    let dias = 1; // Simplified for text log
+    try { dias = getDiasLaborables(item.fInicio, item.fFin, document.getElementById('toggle-domingos').checked); } catch(e){}
     let horasTotales = dias * horasPorDia;
     listaEquiposTexto += `▪ ${item.qty}x ${item.nombre} (${horasTotales} hrs)\n`;
   });
@@ -494,7 +502,9 @@ async function aprobarCotizacion() {
     "Subtotal Operativo": parseFloat(desglose.subtotalOperativo.toFixed(2)),
     "ITBIS": parseFloat(desglose.itbis.toFixed(2)),
     "Total Presupuesto": parseFloat(desglose.total.toFixed(2)),
-    "Estado de Cotización": "Pendiente"
+    "Estado de Cotización": "Pendiente",
+    "quote_id": window.current_quote_id || "N/A",
+    "monto_total": parseFloat(desglose.total.toFixed(2))
   };
 
   try {
@@ -505,20 +515,18 @@ async function aprobarCotizacion() {
     });
 
     if (!resp.ok) {
-      let errText = "Airtable rechazó los datos (422). Probablemente un campo no coincida.";
+      let errText = "Airtable rechazó los datos (422).";
       try {
         const errJson = await resp.json();
         errText = errJson.details || errJson.error || errText;
-      } catch (e) {
-        // failed to parse
-      }
+      } catch (e) {}
       alert("Error al guardar en Airtable. Detalle:\n\n" + errText);
     } else {
-      alert("¡Gracias! Tu cotización ha sido guardada exitosamente y pronto te contactaremos.");
+      alert("¡Gracias! Tu cotización ha sido guardada exitosamente con ID: " + window.current_quote_id);
       cambiarPaso(1);
     }
   } catch (err) {
-    alert("Error de red: Recuerda que esta aplicación requiere conexión a internet y debe estar desplegada en Vercel para funcionar correctamente.");
+    alert("Error de red: Recuerda que esta aplicación requiere conexión a internet.");
     console.error("Excepción de red:", err);
   }
 
