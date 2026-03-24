@@ -107,6 +107,7 @@ btnTheme.addEventListener('click', () => {
 });
 
 function abrirModal(categoria) {
+  document.body.style.overflow = 'hidden';
   const data = productosDB[categoria];
   document.getElementById('modal-titulo').innerHTML = `<i data-lucide="${data.icon}" class="w-4 h-4 text-app-neon"></i> ${categoria}`;
   document.getElementById('modal-alerta').innerText = data.alerta;
@@ -147,7 +148,10 @@ function abrirModal(categoria) {
   lucide.createIcons();
 }
 
-function cerrarModal() { document.getElementById('modal-productos').classList.add('hidden'); }
+function cerrarModal() { 
+  document.body.style.overflow = '';
+  document.getElementById('modal-productos').classList.add('hidden'); 
+}
 
 document.getElementById('modal-productos').addEventListener('click', function (e) {
   if (e.target === this) cerrarModal();

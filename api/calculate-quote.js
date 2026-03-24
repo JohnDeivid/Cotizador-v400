@@ -46,11 +46,11 @@ export default async function handler(req, res) {
         // Optimization: In a real scenario, we would use a single query with filters, 
         // but for simplicity and to follow instructions of "consultar precios base desde Airtable",
         // we will fetch the relevant records.
-        
+
         const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE}`, {
             headers: { 'Authorization': `Bearer ${AIRTABLE_PAT}` }
         });
-        
+
         if (!response.ok) throw new Error("Airtable fetch failed");
         const airtableData = await response.json();
         const dbItems = airtableData.records.reduce((acc, rec) => {
