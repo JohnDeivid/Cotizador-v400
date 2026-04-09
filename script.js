@@ -45,15 +45,29 @@ let desglose = { subtotalMaquinasPuro: 0, descuentoValor: 0, costoOperador: 0, f
 // Las credenciales están securizadas en el backend a través de Vercel Serverless Functions.
 
 // =========================================================================
-// 3. FUNCIONES DE CONEXIÓN (API FETCH)
+// 3. FUNCIONES DE CONEXIÓN (API FETCH) con Reintentos
 // =========================================================================
-async function cargarInventarioAirtable() {
+async function cargarInventarioAirtable(retries = 3) {
   try {
     const response = await fetch(`/api/get-inventory`);
 
-    if (!response.ok) throw new Error("Fallo en la conexión");
+    if (!response.ok) {
+      if (retries > 0) {
+        console.warn(`Fallo en carga, reintentando... (${retries} restantes)`);
+        return setTimeout(() => cargarInventarioAirtable(retries - 1), 1000);
+      }
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
+    // Verificar si el contenido es JSON
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("La respuesta del servidor no es JSON (Check Vercel Rewrites)");
+    }
 
     const data = await response.json();
+
+    if (!data.records) throw new Error("Formato de datos de Airtable inválido");
 
     data.records.forEach(record => {
       const f = record.fields;
@@ -75,19 +89,29 @@ async function cargarInventarioAirtable() {
           stock: f.Stock || 0,
           portadorValido: f.PortadorValido || false,
           requierePortador: f.RequierePortador || false,
-          esMartillo: f.EsMartillo || false
+           esMartillo: f.EsMartillo || false
         });
       }
     });
 
     const loader = document.getElementById('loading-screen');
-    loader.style.opacity = '0';
-    setTimeout(() => loader.style.display = 'none', 500);
+    if (loader) {
+      loader.style.opacity = '0';
+      setTimeout(() => loader.style.display = 'none', 500);
+    }
 
   } catch (error) {
     console.error("Airtable Error:", error);
-    document.querySelector('.spinner').style.display = 'none';
-    document.getElementById('loading-error').classList.remove('hidden');
+    if (retries > 0) {
+        return setTimeout(() => cargarInventarioAirtable(retries - 1), 1500);
+    }
+    const spinner = document.querySelector('.spinner');
+    if (spinner) spinner.style.display = 'none';
+    const errorEl = document.getElementById('loading-error');
+    if (errorEl) {
+      errorEl.classList.remove('hidden');
+      errorEl.innerText = `Error: ${error.message}. Intenta recargar la página.`;
+    }
   }
 }
 
